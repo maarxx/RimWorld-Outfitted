@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using RimWorld;
@@ -87,6 +88,53 @@ namespace Outfitted
                 if (ThoughtUtility.CanGetThought_NewTemp(pawn, ThoughtDefOf.HumanLeatherApparelHappy, true))
                 {
                     score += 0.12f;
+                }
+            }
+
+            //royalty titles
+            if (pawn.royalty.AllTitlesInEffectForReading.Count > 0)
+            {
+                HashSet<ThingDef> tmpAllowedApparels = new HashSet<ThingDef>();
+                HashSet<ThingDef> tmpRequiredApparels = new HashSet<ThingDef>();
+                HashSet<BodyPartGroupDef> tmpBodyPartGroupsWithRequirement = new HashSet<BodyPartGroupDef>();
+                QualityCategory qualityCategory = QualityCategory.Awful;
+                foreach (RoyalTitle item in pawn.royalty.AllTitlesInEffectForReading)
+                {
+                    if (item.def.requiredApparel != null)
+                    {
+                        for (int i = 0; i < item.def.requiredApparel.Count; i++)
+                        {
+                            tmpAllowedApparels.AddRange(item.def.requiredApparel[i].AllAllowedApparelForPawn(pawn, ignoreGender: false, includeWorn: true));
+                            tmpRequiredApparels.AddRange(item.def.requiredApparel[i].AllRequiredApparelForPawn(pawn, ignoreGender: false, includeWorn: true));
+                            tmpBodyPartGroupsWithRequirement.AddRange(item.def.requiredApparel[i].bodyPartGroupsMatchAny);
+                        }
+                    }
+                    if (item.def.requiredMinimumApparelQuality > qualityCategory)
+                    {
+                        qualityCategory = item.def.requiredMinimumApparelQuality;
+                    }
+                }
+
+                if (apparel.TryGetQuality(out QualityCategory qc) && qc < qualityCategory)
+                {
+                    score *= 0.25f;
+                }
+
+                bool isRequired = apparel.def.apparel.bodyPartGroups.Any(bp => tmpBodyPartGroupsWithRequirement.Contains(bp));
+                if (isRequired)
+                {
+                    foreach (ThingDef tmpRequiredApparel in tmpRequiredApparels)
+                    {
+                        tmpAllowedApparels.Remove(tmpRequiredApparel);
+                    }
+                    if (tmpAllowedApparels.Contains(apparel.def))
+                    {
+                        score *= 10f;
+                    }
+                    if (tmpRequiredApparels.Contains(apparel.def))
+                    {
+                        score *= 25f;
+                    }
                 }
             }
 
